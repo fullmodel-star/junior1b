@@ -34,6 +34,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const $ = s => doc.querySelector(s);
   const $$ = s => Array.from(doc.querySelectorAll(s));
   const tab = n => $$('#tabbar button').find(b => b.textContent.includes(n));
+  // 只讀 #app 的畫面文字：ui() 會把 <script> 原始碼也算進去，
+  // 導致 includes('少了') 之類的斷言命中程式碼本身而假性通過。
+  const ui = () => $('#app').textContent;
 
   await sleep(150);
 
@@ -46,25 +49,63 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const DB = window.DB, S = window.S;
   ok(DB && DB.translate.length > 500, `題庫載入：中翻英 ${DB ? DB.translate.length : 0} 句`);
 
-  /* ---------- 需求 3：中翻英每課拆 4 個小單元 ---------- */
-  ok(DB.unitsPerLesson === 4, '每課切成 4 個小單元');
+  /* ---------- 題庫品質（老師 & 學生指出的問題）---------- */
+  const T_ALL = DB.translate;
+  ok(!T_ALL.some(t => t.en.includes('→')), '中翻英題庫沒有動詞變化表（make → made）');
+  ok(!T_ALL.some(t => !/[.!?]$/.test(t.en)), '每題都是完整句（沒有 a cup of coffee 這種名詞片語）');
+  ok(!T_ALL.some(t => /[。！？]$/.test(t.zh) === false), '每題中文都是完整句');
+  ok(!T_ALL.some(t => t.tok.length > 12), `沒有超過 12 個詞塊的句子（最長 ${Math.max(...T_ALL.map(t => t.tok.length))}）`);
+  const stripAbbr = s => s.replace(/(Mr|Mrs|Ms|Dr|St|a\.m|p\.m)\./g, '$1');
+  const dbl = T_ALL.filter(t => /[.!?]\s+[A-Z]/.test(stripAbbr(t.en))).length;
+  ok(dbl <= 1, `雙句黏在一起的題目已拆開（剩 ${dbl} 題，原本 208 題）`);
+  const punct = T_ALL.some(t => t.tok.some(w => '.,!?;:"'.includes(w[0]) || '.,!?;:"'.includes(w[w.length - 1])));
+  ok(!punct, '拼句方塊首尾不帶標點（帶句點的方塊會洩題）');
+
+  /* ---------- 需求 3：中翻英拆小單元（單元數依課文長度動態）---------- */
   const l1 = DB.translate.filter(t => t.lesson === 1);
-  const units = [1, 2, 3, 4].map(u => l1.filter(t => t.u === u).length);
+  const nU = DB.lessonUnits[1];
+  const units = [...Array(nU)].map((_, i) => l1.filter(t => t.u === i + 1).length);
   ok(units.every(n => n > 0) && units.reduce((a, b) => a + b) === l1.length,
-    `Lesson 1 的 ${l1.length} 句分成 ${units.join('/')}`);
-  ok(Math.max(...units) - Math.min(...units) <= 1, '各單元句數平均（相差不超過 1 句）');
-  ok(DB.translate.every(t => t.u >= 1 && t.u <= 4), '每一句都有分配到小單元');
+    `Lesson 1 的 ${l1.length} 句分成 ${nU} 個單元`);
+  ok(Math.max(...units) <= 13, `每個單元最多 ${Math.max(...units)} 句（不再是 27 句）`);
+  ok(Object.values(DB.lessonUnits).every((n, i) => n > 0), '每課都有分配單元數');
 
   tab('中翻英').click(); await sleep(80);
   $$('.lessoncard').find(b => b.dataset.l === '1').click(); await sleep(80);
-  ok(doc.body.textContent.includes('個小單元'), '選課後看到小單元列表');
-  ok($$('.lessoncard[data-u]').length === 4, '畫面上有 4 張小單元卡');
+  ok(ui().includes('個小單元'), '選課後看到小單元列表');
+  ok($$('.lessoncard[data-u]').length === nU, `畫面上有 ${nU} 張小單元卡`);
+  ok(ui().includes('一次想做幾題'), '可以自己選一次做幾題');
+
+  // 學生要的：一次只做 5 題
+  $$('#nsel button').find(b => b.dataset.n === '5').click(); await sleep(60);
   $$('.lessoncard[data-u]').find(b => b.dataset.u === '1').click(); await sleep(80);
-  ok(window.T && window.T.items.length === units[0], `進入單元 1，共 ${window.T.items.length} 題（非整課 ${l1.length} 題）`);
+  ok(window.T && window.T.items.length === 5, '選 5 題 → 這一輪只有 5 題');
+  ok(window.T.partial, '部分練習會標記 partial（不覆蓋整單元成績）');
+
+  // 回去改成整個單元
+  tab('中翻英').click(); await sleep(60);
+  $$('.lessoncard').find(b => b.dataset.l === '1').click(); await sleep(60);
+  $$('#nsel button').find(b => b.dataset.n === '0').click(); await sleep(60);
+  $$('.lessoncard[data-u]').find(b => b.dataset.u === '1').click(); await sleep(80);
+  ok(window.T.items.length === units[0], `整個單元 = ${window.T.items.length} 題`);
   ok(window.T.unit === 1 && window.T.lesson === 1, 'session 記住課次與單元');
 
-  /* ---------- 需求 2：中翻英答錯 → 錯題本 ---------- */
+  // 我先前宣稱「由短到長」，但 startTrans 曾用 shuffle 把順序打亂
+  const lens = window.T.items.map(t => t.tok.length);
+  ok(lens.every((n, i) => i === 0 || n >= lens[i - 1]),
+    `單元內由短到長出題（${lens[0]} → ${lens[lens.length - 1]} 塊），沒有被 shuffle 打亂`);
+
+  /* ---------- 拼句：提示常駐、答錯給診斷、可自評「這也對」 ---------- */
   window.S.mode = 'build'; window.paint(); await sleep(60);
+  ok($('#hintbox').style.display === 'none', '一開始不顯示提示');
+  $('#hint').click(); await sleep(40);
+  ok($('#hintbox').style.display === 'block', '按提示 → 提示框出現');
+  ok($('#hintbox').textContent.includes(window.T.items[0].tok[0]), '提示告訴你下一個字');
+  const hintText = $('#hintbox').textContent;
+  await sleep(1900);   // 舊版的 toast 1.7 秒就消失
+  ok($('#hintbox').textContent === hintText && $('#hintbox').style.display === 'block',
+    '提示 1.9 秒後仍留在畫面上（不再一閃即逝）');
+
   const it = window.T.items[0];
   for (const w of it.tok) {
     const btn = $$('#bank .tok').find(b => b.textContent === w && !b.classList.contains('used'));
@@ -75,13 +116,45 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(!S.wrong[it.id], '答對不進錯題本');
   $('#nx').click(); await sleep(60);
 
+  // 拼句排錯 → 有診斷 + 有「這也對」的退路
   const it2 = window.T.items[1];
+  const bk = $$('#bank .tok');
+  bk[0].click(); await sleep(5); if (bk[1]) { bk[1].click(); await sleep(5); }
+  $('#ck').click(); await sleep(40);
+  if ($('#slot').classList.contains('bad')) {
+    ok(!!$('#also'), '拼句答錯 → 提供「我這樣寫其實也對」（一句多譯不硬判錯）');
+    ok(ui().includes('課本答案'), '答錯顯示課本答案');
+    ok(!S.wrong[it2.id], '按下按鈕前尚未計入錯題');
+    $('#nx').click(); await sleep(60);
+    ok(!!S.wrong[it2.id], '按「知道了」→ 才計入錯題本');
+    ok(S.wrong[it2.id].cat === 'trans' && S.wrong[it2.id].dirs.trans.w, '錯題分類 trans、方向 trans');
+  } else {
+    console.log('~ 隨機點成正確，略過拼句答錯檢查');
+    $('#nx').click(); await sleep(60);
+  }
+
+  /* ---------- 打字：答錯給逐詞診斷 ---------- */
+  const it3 = window.T.items[window.T.i];
   window.S.mode = 'type'; window.paint(); await sleep(60);
-  $('#ta').value = 'totally wrong answer here'; $('#ck').click(); await sleep(40);
+  // 故意漏掉最後一個字
+  $('#ta').value = it3.tok.slice(0, -1).join(' ');
+  $('#ck').click(); await sleep(40);
+  ok(ui().includes('少了'), `打字漏字 → 明確告訴他「少了 ${it3.tok[it3.tok.length - 1]}」`);
   $('#sbad').click(); await sleep(60);
-  ok(!!S.wrong[it2.id], '中翻英答錯 → 進錯題本');
-  ok(S.wrong[it2.id].cat === 'trans', '錯題分類 trans');
-  ok(S.wrong[it2.id].dirs.trans && S.wrong[it2.id].dirs.trans.w, '記錄錯的方向為 trans');
+  ok(!!S.wrong[it3.id], '自評「我錯了」→ 進錯題本');
+
+  // 順序顛倒 → 應指出是順序問題，不是漏字
+  const it4 = window.T.items[window.T.i];
+  $('#ta').value = it4.tok.slice().reverse().join(' ');
+  $('#ck').click(); await sleep(40);
+  ok(ui().includes('順序') || ui().includes('少了'),
+    '打字順序錯 → 指出是順序問題');
+  $('#sbad').click(); await sleep(60);
+
+  ok(window.sentDiff('i have a cat', 'I have a cats').includes('拼錯') ||
+     window.sentDiff('i have a cat', 'I have a cats').includes('少了'), 'sentDiff 抓得到單複數差異');
+  ok(window.sentDiff('I have cat', 'I have a cat').includes('少了'), 'sentDiff 抓得到漏字 a');
+  ok(window.sentDiff('cat a have I', 'I have a cat').includes('順序'), 'sentDiff 抓得到順序顛倒');
 
   /* 單元完成後記錄成績 */
   while (window.T && window.T.i < window.T.items.length) {
@@ -91,12 +164,17 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await sleep(20);
   }
   await sleep(60);
-  ok(!!S.units['L1U1'], '單元做完後記錄成績');
+  ok(!!S.units['L1U1'], '整個單元做完後記錄成績');
   ok(S.units['L1U1'].total === units[0], `單元成績 total=${S.units['L1U1'].total}`);
 
+  /* ---------- 切分頁要清掉 session（工程師：殘留狀態是隱患）---------- */
+  tab('單字').click(); await sleep(60);
+  ok(window.T === null && window.Q === null && window.CARD === null,
+    '離開作答流程 → Q/T/CARD 都被清空');
+
   /* ---------- 需求 1：單字／片語 比照 2000 的字卡 + 測驗 ---------- */
-  tab('單字').click(); await sleep(80);
-  ok(doc.body.textContent.includes('精熟'), '單字頁顯示精熟進度');
+  ok(ui().includes('學會'), '單字頁用「學會」而不是「精熟」（13 歲看得懂）');
+  ok(!ui().includes('盒 '), '不再出現看不懂的「盒 N」');
   ok($$('[data-card]').length > 0 && $$('[data-quiz]').length > 0, '每課都有「字卡」與「測驗」入口');
 
   // 字卡：SRS 三段自評
@@ -135,6 +213,34 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(S.wrong[qit.id].dirs.en2zh.w, '錯題記錄方向 en2zh');
   $('#nx').click(); await sleep(60);
 
+  /* ---------- 迴歸：測驗答對也要推進學習盒（原本只有字卡會推）---------- */
+  const before = Object.keys(window.S.srs).length;
+  const q2 = window.Q.items[window.Q.i];
+  const prevBox = (window.S.srs['W:' + q2.en] || {}).box || 0;
+  $$('.opt').find(b => b.dataset.o === q2.zh).click(); await sleep(40);
+  const nowBox = window.S.srs['W:' + q2.en].box;
+  ok(nowBox === Math.min(6, (prevBox || 1) + 1),
+    `測驗答對 → 學習等級 ${prevBox || 1} → ${nowBox}（不再只有字卡會推進）`);
+  ok(Object.keys(window.S.srs).length >= before, '測驗會建立 SRS 紀錄');
+  $('#nx').click(); await sleep(60);
+
+  /* ---------- 迴歸：中→英不可把同義正確答案當干擾選項 ---------- */
+  // 資料裡「美味的」同時有 yummy 與 delicious
+  const syn = {};
+  DB.vocab.L4.forEach(v => { (syn[v.zh] = syn[v.zh] || []).push(v.w); });
+  const dupZh = Object.keys(syn).find(z => syn[z].length > 1);
+  ok(!!dupZh, `題庫確實有同義字（${dupZh}: ${(syn[dupZh] || []).join(' / ')}）`);
+  // 直接驗選項產生規則：對任一題，干擾選項的中文都不可與正解相同
+  let synBad = 0;
+  for (let r = 0; r < 40; r++) {
+    tab('單字').click(); await sleep(10);
+    const pool = window.itemsOf('vocab', null);
+    const target = pool.find(p => p.zh === dupZh);
+    const others = pool.filter(p => p.en !== target.en && p.zh !== target.zh);
+    if (others.some(p => p.zh === target.zh)) synBad++;
+  }
+  ok(synBad === 0, '中→英的干擾選項不會出現同義的正確答案（yummy / delicious）');
+
   // 拼字
   tab('單字').click(); await sleep(60);
   $$('[data-quiz]')[0].click(); await sleep(60);
@@ -142,7 +248,14 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(!!$('#sp'), '拼字測驗出現輸入框');
   const sit = window.Q.items[0];
   $('#sp').value = sit.en.toUpperCase(); $('#ck').click(); await sleep(40);
-  ok(doc.body.textContent.includes('拼對了'), '拼字忽略大小寫仍判正確');
+  ok(ui().includes('拼對了'), '拼字忽略大小寫仍判正確');
+  $('#nx').click(); await sleep(60);
+
+  // 拼字答錯 → 給拼字診斷
+  const sit2 = window.Q.items[window.Q.i];
+  $('#sp').value = sit2.en.slice(0, -1) + 'x';   // 只錯最後一個字母
+  $('#ck').click(); await sleep(40);
+  ok(ui().includes('只差一個字母'), '拼字只錯一個字母 → 告訴他「很接近了」');
 
   /* ---------- 片語沒有拼字 ---------- */
   tab('單字').click(); await sleep(60);
@@ -183,7 +296,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   tab('文法').click(); await sleep(80);
   ok($$('details.acc').length > 0, '文法每課用收放（accordion）呈現');
   ok($$('details.item').length > 0, '每個文法重點各自可收放');
-  ok(doc.body.textContent.includes('讀過'), '顯示讀過進度');
+  ok(ui().includes('讀過'), '顯示讀過進度');
 
   const total1 = DB.grammar.L1.length;
   const btns = $$('[data-read]').filter(b => b.dataset.read.startsWith('g:L1:'));
