@@ -194,9 +194,14 @@ function normEn(s){
     .replace(/\s+/g,' ').trim();
 }
 
+/* ===== 忍者修行：跨App共用經驗值錢包（同網域，灌進火影修行計畫） ===== */
+window.Ninja=window.Ninja||(function(){var K='ninja_xp_v1';function L(){try{return JSON.parse(localStorage.getItem(K))||{}}catch(e){return{}}}function G(){var w=L();w.xp=w.xp||0;w.bySrc=w.bySrc||{};w.correct=w.correct||0;w.units=w.units||0;w.jutsu=w.jutsu||[];w.seen=w.seen||{};return w}function P(w){w.ts=Date.now();try{localStorage.setItem(K,JSON.stringify(w))}catch(e){}}return{get:G,gain:function(n,a,o){o=o||{};var w=G();w.xp+=n;w.bySrc[a]=(w.bySrc[a]||0)+n;w.correct+=(o.correct||0);w.units+=(o.unit||0);P(w);return w},backfill:function(a,x,o){var w=G();if(w.seen[a])return w;o=o||{};w.xp+=x;w.bySrc[a]=(w.bySrc[a]||0)+x;w.correct+=(o.correct||0);w.units+=(o.unit||0);w.seen[a]=1;P(w);return w}}})();
+var NINJA_APP='junior1b';
+
 /* ===== 錯題本 / 間隔複習：同一天只記一次「對」，連對 2 次（跨兩天）畢業 ===== */
 function markResult(cat, id, ok, meta){
-  S.stat.ans++; if(ok) S.stat.ok++;
+  S.stat.ans++;
+  if(ok){ S.stat.ok++; try{Ninja.gain(10,NINJA_APP,{correct:1})}catch(e){} }
   var d=today();
   S.days[d]=(S.days[d]||0)+1;
   if(S.lastDay!==d){

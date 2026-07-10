@@ -149,6 +149,12 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const hasWrong = Object.keys(window.S.wrong).length > 0;
   ok(doc.body.textContent.includes(hasWrong ? '待複習' : '沒有待複習'), '複習頁正常呈現');
 
+  // 10b. 忍者 XP：答對灌進跨 App 共用錢包 ninja_xp_v1
+  const wallet = JSON.parse(window.localStorage.getItem('ninja_xp_v1') || '{}');
+  ok(wallet.xp > 0, `忍者 XP 已累積 ${wallet.xp || 0} 點`);
+  ok(wallet.bySrc && wallet.bySrc.junior1b > 0, 'XP 來源標記為 junior1b');
+  ok(wallet.correct > 0, `錢包記錄答對 ${wallet.correct || 0} 題`);
+
   // 11. 正規化比對規則
   ok(window.normEn('I am Happy!') === window.normEn('i am happy'), '比對忽略大小寫與標點');
   ok(window.normEn('I  am   happy') === window.normEn('I am happy'), '比對忽略多餘空白');
