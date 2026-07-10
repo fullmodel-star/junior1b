@@ -26,9 +26,18 @@ header.top{
   background:linear-gradient(135deg,var(--brand),var(--brand2));
   color:#fff;padding:calc(env(safe-area-inset-top) + 14px) 14px 14px;
   margin:0 -14px 14px; border-radius:0 0 18px 18px;
+  display:flex;align-items:center;gap:10px;
 }
+header.top .htxt{flex:1;min-width:0}
 header.top h1{margin:0;font-size:19px;letter-spacing:.5px}
 header.top .sub{opacity:.9;font-size:12.5px;margin-top:2px}
+.backbtn{
+  flex:none;width:38px;height:38px;border:0;border-radius:11px;cursor:pointer;
+  background:rgba(255,255,255,.22);color:#fff;font-size:26px;line-height:1;
+  font-family:inherit;display:flex;align-items:center;justify-content:center;
+}
+.backbtn:hover{background:rgba(255,255,255,.34)}
+.backbtn:focus-visible{outline:3px solid #fff;outline-offset:2px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 0 12px}
 .card h3{margin:0 0 8px;font-size:15.5px}
 .muted{color:var(--muted)}
@@ -499,10 +508,28 @@ function autoGate(){
 var TABS=[['home','🏠','首頁'],['vocab','📘','單字'],['gram','📗','文法'],['trans','✍️','中翻英'],['review','🔁','複習']];
 var CUR='home', VIEW={};
 var SUBFLOW={quiz:1,quizSetup:1,transRun:1,card:1};   // 需要 session 的頁
-function go(v,opt){
+var ROOTVIEW={home:1,vocab:1,gram:1,trans:1,review:1}; // 主分頁（底部那五個）
+var navStack=[];
+function isRootView(){
+  // 中翻英選課後的「單元列表」雖然 CUR='trans'，但它是子頁，要能返回
+  if(CUR==='trans' && VIEW.lesson && !VIEW.picked) return false;
+  return !!ROOTVIEW[CUR];
+}
+function canBack(){ return !isRootView() && navStack.length>0; }
+function go(v,opt){ _go(v,opt,false); }
+function _go(v,opt,isBack){
   // 離開作答流程時清掉殘留的 session，避免完成頁讀到上一輪的分數
   if(!SUBFLOW[v]){ Q=null; T=null; CARD=null; }
+  if(!isBack && CUR){
+    navStack.push({v:CUR,opt:VIEW});
+    if(navStack.length>40) navStack.shift();
+  }
   CUR=v;VIEW=opt||{};window.scrollTo(0,0);paint();
+}
+function goBack(){
+  var p=navStack.pop();
+  if(p) _go(p.v,p.opt,true);
+  else _go('home',{},true);
 }
 function renderTabs(){
   tabbar.style.display='flex';
@@ -517,7 +544,9 @@ function renderTabs(){
   });
 }
 function head(title,sub){
-  return '<header class="top"><h1>'+esc(title)+'</h1>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</header>';
+  var back=canBack()?'<button class="backbtn" id="backBtn" type="button" aria-label="返回上一頁">‹</button>':'';
+  return '<header class="top'+(back?' hasback':'')+'">'+back+
+    '<div class="htxt"><h1>'+esc(title)+'</h1>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div></header>';
 }
 
 /* ===== 首頁 ===== */
@@ -912,7 +941,6 @@ function viewUnits(lesson){
      }).join('')+'</div>'+
      '<p class="muted" style="font-size:12.5px;margin:0">累的時候做 5 題就好，進度一樣會存。</p></div>';
   h+='<div class="card"><div class="grid4" id="ug"></div></div>';
-  h+='<div class="card"><button class="btn ghost wide" id="bk">← 回課次列表</button></div>';
   app.innerHTML=h;
   var ug=document.getElementById('ug');
   var out='';
@@ -936,7 +964,6 @@ function viewUnits(lesson){
   Array.prototype.forEach.call(ug.querySelectorAll('.lessoncard'),function(b){
     b.onclick=function(){startTrans({lesson:lesson,unit:+b.dataset.u,n:S.tn||0})};
   });
-  document.getElementById('bk').onclick=function(){go('trans',{picked:1})};
 }
 
 var T=null;
@@ -1215,8 +1242,10 @@ function paint(){
   else if(CUR==='trans') viewTrans();
   else if(CUR==='transRun') viewTransRun();
   else if(CUR==='review') viewReview();
+  var bb=document.getElementById('backBtn');
+  if(bb) bb.onclick=goBack;
 }
-function boot(){ go('home'); }
+function boot(){ navStack=[]; go('home'); }
 
 /* ===== 啟動 ===== */
 if(!('crypto' in window && crypto.subtle)){

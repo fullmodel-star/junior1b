@@ -63,6 +63,29 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(window.CUR === 'review', '點首頁「複習」圖塊 → 到錯題複習');
   tab('首頁').click(); await sleep(60);
 
+  /* ---------- 返回上一頁：子頁有返回鈕、主分頁沒有、能逐層回 ---------- */
+  ok(!$('#backBtn'), '首頁（主分頁）不顯示返回鈕');
+  $$('.navtile').find(b => b.dataset.go === 'trans').click(); await sleep(60); // home→中翻英
+  ok(!$('#backBtn'), '中翻英課次列表是主分頁，不顯示返回鈕');
+  $$('.lessoncard').find(b => b.dataset.l === '1').click(); await sleep(60);   // →單元列表(子頁)
+  ok(!!$('#backBtn'), '進到單元列表 → 出現返回鈕');
+  $$('.lessoncard[data-u]').find(b => b.dataset.u === '1').click(); await sleep(60); // →作答
+  ok(!!$('#backBtn'), '作答頁也有返回鈕');
+  $('#backBtn').click(); await sleep(60);
+  ok(window.CUR === 'trans' && window.VIEW.lesson === 1, '返回 → 回到單元列表');
+  ok(!!$('#backBtn'), '單元列表仍有返回鈕');
+  $('#backBtn').click(); await sleep(60);
+  ok(window.CUR === 'trans' && !window.VIEW.lesson, '再返回 → 回到課次列表（主分頁）');
+  ok(!$('#backBtn'), '回到主分頁後返回鈕消失');
+  // 從單字進字卡也要能返回
+  tab('單字').click(); await sleep(60);
+  ok(!$('#backBtn'), '單字頁是主分頁，無返回鈕');
+  $$('[data-card]')[0].click(); await sleep(60);
+  ok(!!$('#backBtn') && window.CUR === 'card', '進字卡 → 有返回鈕');
+  $('#backBtn').click(); await sleep(60);
+  ok(window.CUR === 'vocab', '字卡返回 → 回單字頁');
+  tab('首頁').click(); await sleep(60);
+
   /* ---------- 題庫品質（老師 & 學生指出的問題）---------- */
   const T_ALL = DB.translate;
   ok(!T_ALL.some(t => t.en.includes('→')), '中翻英題庫沒有動詞變化表（make → made）');
