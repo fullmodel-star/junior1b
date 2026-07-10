@@ -176,6 +176,15 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(ui().includes('學會'), '單字頁用「學會」而不是「精熟」（13 歲看得懂）');
   ok(!ui().includes('盒 '), '不再出現看不懂的「盒 N」');
   ok($$('[data-card]').length > 0 && $$('[data-quiz]').length > 0, '每課都有「字卡」與「測驗」入口');
+  // 一進單字頁就要看得到單字（課別預設展開，不能藏在折疊裡）
+  ok($$('details.acc').length === 6 && $$('details.acc').every(d => d.open),
+    '單字頁 6 課全部預設展開（不是折疊）');
+  ok(ui().includes('exercise') && ui().includes('breakfast'),
+    '不用點開就直接看得到單字（exercise / breakfast）');
+  // 切到片語也要直接看得到
+  $$('.seg button').find(b => b.textContent.includes('片語')).click(); await sleep(60);
+  ok(ui().includes('get up'), '片語頁也直接看得到片語（get up）');
+  $$('.seg button').find(b => b.textContent.includes('單字')).click(); await sleep(60);
 
   // 字卡：SRS 三段自評
   $$('[data-card]')[0].click(); await sleep(80);

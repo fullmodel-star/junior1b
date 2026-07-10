@@ -557,14 +557,15 @@ function viewHome(){
 /* ===== 單字 / 片語（字卡 + 測驗，比照國中2000） ===== */
 function viewVocab(){
   var cat=VIEW.cat||'vocab';
-  var h=head('單字 & 片語','字卡自評進盒子，測驗答錯進錯題本');
+  var h=head('單字 & 片語','點課名可以收合，點單字聽發音');
   h+='<div class="seg"><button data-c="vocab" class="'+(cat==='vocab'?'on':'')+'">單字 120</button>'+
      '<button data-c="phrase" class="'+(cat==='phrase'?'on':'')+'">片語 47</button></div>';
   lessonsOf().forEach(function(L){
     var arr=itemsOf(cat,L.id); if(!arr.length) return;
     var mst=masteredCount(cat,L.id);
     var dueN=arr.filter(function(x){var e=srsOf(cat,x.en);return e&&e.due<=Date.now()}).length;
-    h+='<details class="acc"><summary><span>'+esc(L.name)+
+    // 預設展開：單字頁一進來就要看得到字（收合是我改壞的，用戶以為字不見了）
+    h+='<details class="acc" open><summary><span>'+esc(L.name)+
        ' <span class="muted" style="font-weight:400;font-size:13px">'+esc(L.zh||L.topic||'')+'</span></span>'+
        '<span class="pill'+(mst===arr.length?' g':'')+'">學會 '+mst+'/'+arr.length+'</span></summary>'+
        '<div class="accbody">'+
