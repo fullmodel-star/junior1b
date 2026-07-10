@@ -44,6 +44,19 @@ for (let n = 1; n <= 6; n++) {
   console.log(`  Lesson ${n}: 文法 ${g} / 中翻英 ${c}` + (c === 0 ? '   ⚠ 無句子' : ''));
 }
 
+// 小單元切分
+const UPL = DATA.unitsPerLesson;
+console.log('  每課小單元數:', UPL);
+for (let n = 1; n <= 6; n++) {
+  const ls = T.filter(t => t.lesson === n);
+  if (!ls.length) continue;
+  const sizes = [...Array(UPL)].map((_, i) => ls.filter(t => t.u === i + 1).length);
+  const balanced = Math.max(...sizes) - Math.min(...sizes) <= 1;
+  const covered = sizes.reduce((a, b) => a + b) === ls.length;
+  console.log(`  Lesson ${n}: ${ls.length} 句 → [${sizes}]` +
+    (balanced && covered ? '' : '  ⚠ 切分不均或有漏'));
+}
+
 // 中翻英題目健全性
 const bad = [];
 T.forEach(t => {
@@ -51,6 +64,7 @@ T.forEach(t => {
   else if (t.tok.join(' ') !== t.en) bad.push([t.id, 'tokens 無法還原原句']);
   else if (/^[AB]\s*:/.test(t.en)) bad.push([t.id, '對話句未濾除']);
   else if (t.en.includes('___')) bad.push([t.id, '仍有填空']);
+  else if (!(t.u >= 1 && t.u <= UPL)) bad.push([t.id, '沒有分配到小單元']);
 });
 if (bad.length) {
   console.log('✗ 題目問題', bad.length, '筆，前 5 筆:');

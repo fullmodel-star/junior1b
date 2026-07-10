@@ -86,6 +86,25 @@ def collect_sentences():
 
 TRANSLATE = collect_sentences()
 
+# ---- 每課的中翻英再切成 4 個小單元（一次 87 句太多，拆成約 20~27 句一單元）----
+UNITS_PER_LESSON = 4
+for n in range(1, 7):
+    ls = [t for t in TRANSLATE if t['lesson'] == n]
+    total = len(ls)
+    if not total:
+        continue
+    # 近似等分：前面幾個單元各多一句，餘數分光
+    base, rem = divmod(total, UNITS_PER_LESSON)
+    idx = 0
+    for u in range(1, UNITS_PER_LESSON + 1):
+        size = base + (1 if u <= rem else 0)
+        for t in ls[idx:idx + size]:
+            t['u'] = u
+        idx += size
+
+# 短句在前、長句在後，讓每個單元由易漸難
+TRANSLATE.sort(key=lambda t: (t['lesson'], t['u'], len(t['tok'])))
+
 LESSON_TITLES = {
     1: 'Sports', 2: 'Habits', 3: 'Special Days',
     4: 'Food', 5: 'A Trip', 6: 'Nature',
@@ -94,7 +113,8 @@ lessons = [{'id': n, 'name': 'Lesson %d' % n, 'topic': LESSON_TITLES.get(n, '')}
            for n in range(1, 7)]
 
 DATA = {
-    'ver': '1.0-internal',
+    'ver': '2.0-internal',
+    'unitsPerLesson': UNITS_PER_LESSON,
     'book': '康軒 英語2 國中1下',
     'lessons': lessons,
     'vocab': VOCAB,
@@ -110,6 +130,11 @@ npz = sum(len(v) for v in PHRASES.values())
 ng = sum(len(v) for v in GRAMMAR.values())
 npt = sum(len(v) for v in PATTERNS.values())
 print('單字:', nv, ' 片語:', npz, ' 文法點:', ng, ' 句型:', npt, ' 中翻英:', len(TRANSLATE))
+for n in range(1, 7):
+    sizes = [len([t for t in TRANSLATE if t['lesson'] == n and t['u'] == u])
+             for u in range(1, UNITS_PER_LESSON + 1)]
+    print('  Lesson %d 中翻英 %d 句 → 小單元 %s' % (n, sum(sizes), sizes))
+assert all(t.get('u') for t in TRANSLATE), '有中翻英句子沒分配到小單元'
 
 # ---- 產 index.html（PBKDF2 -> AES-256-GCM，透過 node encrypt.js）----
 tmp = os.path.join(tempfile.gettempdir(), '_kh1b_data_plain.json')
