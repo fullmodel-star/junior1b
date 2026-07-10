@@ -1,0 +1,10 @@
+{
+  "_說明": "本專案品牌設定。index.html 由 scripts/template.html 建置產生，故 build_templates 必須包含模板，重建才不會洗掉品牌。",
+  "byline": "Lucas 出品",
+  "slogan_html": "人生走稜，<br>高低都是風景。",
+  "license": "© 2026 Lucas　本 App 程式著作權屬作者，未經同意請勿重製、散布或作商業用途。",
+  "disclaimer": "⚠️ 免責聲明：本 App 之單字、例句、文法與翻譯內容整理自康軒《英語2 國中1下 學習自修》，著作權歸康軒文教事業所有，僅供家庭內個人複習使用，故以密碼加密、不對外散布。內容力求正確但仍可能有誤，正式考試與課程請以學校公告與課本教材為準。本 App 與康軒文教事業無隸屬或合作關係，所引用之名稱與商標歸原權利人所有。",
+  "logo_svg": "<svg class=\"rdg-mk\" width=\"54\" height=\"39\" viewBox=\"0 0 210 150\" aria-hidden=\"true\"><defs><linearGradient id=\"rdggrad\" x1=\"0\" y1=\"1\" x2=\"1\" y2=\"0\"><stop offset=\"0\" stop-color=\"#14B8A6\"/><stop offset=\"1\" stop-color=\"#5EEAD4\"/></linearGradient></defs><polyline points=\"16,124 66,32 100,74 126,54 152,76 196,46\" fill=\"none\" stroke=\"url(#rdggrad)\" stroke-width=\"13\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M68 5 C69.2 18.8 70.2 19.8 84 22 C70.2 24.2 69.2 25.2 68 39 C66.8 25.2 65.8 24.2 52 22 C65.8 19.8 66.8 18.8 68 5 Z\" fill=\"#ffffff\" stroke=\"#14B8A6\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/></svg>",
+  "install_button": true,
+  "build_templates": ["scripts/template.html"]
+}
