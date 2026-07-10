@@ -49,6 +49,20 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const DB = window.DB, S = window.S;
   ok(DB && DB.translate.length > 500, `題庫載入：中翻英 ${DB ? DB.translate.length : 0} 句`);
 
+  /* ---------- 首頁功能入口：不用去底部分頁列就能點到各區 ---------- */
+  const tiles = $$('.navtile').map(b => b.dataset.go);
+  ok(['vocab', 'gram', 'trans', 'review'].every(k => tiles.includes(k)),
+    '首頁有 單字／文法／中翻英／複習 四個入口圖塊');
+  $$('.navtile').find(b => b.dataset.go === 'vocab').click(); await sleep(80);
+  ok(window.CUR === 'vocab', '點首頁「單字」圖塊 → 到單字頁');
+  tab('首頁').click(); await sleep(60);
+  $$('.navtile').find(b => b.dataset.go === 'gram').click(); await sleep(80);
+  ok(window.CUR === 'gram', '點首頁「文法」圖塊 → 到文法頁');
+  tab('首頁').click(); await sleep(60);
+  $$('.navtile').find(b => b.dataset.go === 'review').click(); await sleep(80);
+  ok(window.CUR === 'review', '點首頁「複習」圖塊 → 到錯題複習');
+  tab('首頁').click(); await sleep(60);
+
   /* ---------- 題庫品質（老師 & 學生指出的問題）---------- */
   const T_ALL = DB.translate;
   ok(!T_ALL.some(t => t.en.includes('→')), '中翻英題庫沒有動詞變化表（make → made）');

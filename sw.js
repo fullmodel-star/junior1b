@@ -1,4 +1,4 @@
-const CACHE = 'kh1b-e23ba1b28c';
+const CACHE = 'kh1b-8181241d72';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 // CACHE 的版本由 scripts/build.py 每次建置時依 index.html 的雜湊自動戳上。

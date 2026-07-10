@@ -78,6 +78,18 @@ header.top .sub{opacity:.9;font-size:12.5px;margin-top:2px}
   width:100%;padding:12px;border:1px solid var(--line);border-radius:11px;font-size:17px;
   text-align:center;letter-spacing:3px;font-family:inherit;margin:10px 0;
 }
+.navgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px}
+@media(max-width:460px){.navgrid{grid-template-columns:repeat(2,1fr)}}
+.navtile{
+  background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 8px;
+  cursor:pointer;font-family:inherit;color:inherit;text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:3px;min-height:92px;justify-content:center;
+}
+.navtile:hover{border-color:var(--brand);background:var(--soft)}
+.navtile:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+.navtile .ic{font-size:26px;line-height:1}
+.navtile .nm{font-size:14px;font-weight:700;margin-top:2px}
+.navtile .sub{font-size:11.5px;color:var(--muted)}
 .stat{display:flex;gap:8px}
 .stat>div{flex:1;background:var(--soft);border-radius:11px;padding:9px;text-align:center}
 .stat .v{font-size:19px;font-weight:700;color:var(--brand)}
@@ -512,6 +524,12 @@ function head(title,sub){
 function viewHome(){
   var due=wrongDue().length, act=wrongActive().length, td=S.days[today()]||0;
   var mastered=masteredCount('vocab')+masteredCount('phrase');
+  var totV=120+47;
+  var transDone=(DB.translate||[]).filter(function(t){return S.seen[t.id]}).length;
+  var gRead=0,gTot=0;
+  lessonsOf().forEach(function(L){ gRead+=readCount('g',L.id);
+    gTot+=((DB.grammar||{})[LK(L.id)]||[]).length; });
+
   var h=head('國一下英語複習','康軒 英語2・'+esc(DB.book||''));
   h+='<div class="card"><div class="stat">'+
        '<div><div class="v">'+td+'</div><div class="k">今日已練</div></div>'+
@@ -522,19 +540,34 @@ function viewHome(){
      '<div style="margin-top:10px"><div class="prog">今日目標 '+td+' / '+S.goal+' 題</div>'+
      '<div class="bar"><i style="width:'+Math.min(100,pct(td,S.goal))+'%"></i></div></div></div>';
 
-  if(act){
-    h+='<div class="card"><h3>🔁 錯題複習</h3>'+
-       '<p class="muted" style="font-size:13px;margin:0 0 9px">錯題本共 '+act+' 題，其中 '+due+' 題到了該複習的時間。</p>'+
-       '<button class="btn wide" id="gr">'+(due?'開始複習 '+due+' 題':'看錯題本')+'</button></div>';
+  // 功能入口：首頁就能直接點到各區，不用先去底部分頁列找
+  var TILES=[
+    ['vocab','📘','單字 & 片語','學會 '+mastered+'/'+totV],
+    ['gram','📗','文法 & 句型','讀過 '+gRead+'/'+gTot],
+    ['trans','✍️','中翻英','已練 '+transDone+'/'+(DB.translate||[]).length],
+    ['review','🔁','我的複習',due?('該複習 '+due+' 題'):(act?('錯題本 '+act):'目前沒有')]
+  ];
+  h+='<div class="navgrid">'+TILES.map(function(t){
+    return '<button class="navtile" data-go="'+t[0]+'">'+
+      '<div class="ic">'+t[1]+'</div><div class="nm">'+t[2]+'</div>'+
+      '<div class="sub">'+esc(t[3])+'</div></button>';
+  }).join('')+'</div>';
+
+  if(due){
+    h+='<div class="card"><h3>🔁 該複習了</h3>'+
+       '<p class="muted" style="font-size:13px;margin:0 0 9px">有 '+due+' 題到了該複習的時間，趁記憶還在快複習一下。</p>'+
+       '<button class="btn wide" id="gr">開始複習 '+due+' 題</button></div>';
   }
-  h+='<div class="card"><h3>✍️ 中翻英</h3>'+
-     '<p class="muted" style="font-size:13px;margin:0 0 9px">每課切成好幾個小單元，一個單元大約 12 句。</p>'+
+  h+='<div class="card"><h3>✍️ 快速練中翻英</h3>'+
      '<div class="row"><button class="btn" id="qt">隨機 10 題</button>'+
      '<button class="btn ghost" id="gt">選課練習</button></div></div>';
 
   h+='<div class="card"><h3>各課進度</h3><div class="grid" id="lg"></div></div>';
   app.innerHTML=h;
 
+  Array.prototype.forEach.call(app.querySelectorAll('.navtile'),function(b){
+    b.onclick=function(){go(b.dataset.go)};
+  });
   var gr=document.getElementById('gr'); if(gr) gr.onclick=function(){go('review')};
   document.getElementById('qt').onclick=function(){startTrans({n:10})};
   document.getElementById('gt').onclick=function(){go('trans')};
