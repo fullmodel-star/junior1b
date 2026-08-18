@@ -1,0 +1,12 @@
+# ── 絕不上傳：明文版權內容與建置暫存 ──
+# _source/ = 建置來源（康軒學習自修抽取的明文教材），只留本機、不進 repo
+_source/
+# _manifest/ = PDF 抽取帳本(含課本掃描頁PNG原圖+抽取JSON)，跟_source同等敏感，只留本機
+_manifest/
+node_modules/
+_shot*.html
+*.plain.json
+_kh1b_data_plain.json
+
+# 只公開加密後的 index.html + 圖示 + manifest/sw + README。
+# scripts/ 內只有建置程式與版面模板，無教材內容，故保留。
